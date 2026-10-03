@@ -1,9 +1,10 @@
-use std::{borrow::Borrow, env, error::Error, fmt};
+use std::{borrow::{Borrow, BorrowMut}, env, error::Error, fmt};
 
 /// enum с вариантами ошибок
 #[derive(Debug)]
 pub enum ArgError {
     InvalidName,
+    InvalidFlagValue(String),
 }
 
 /// Реализаия Display для вывода понятного сообщения пользователю
@@ -11,6 +12,7 @@ impl fmt::Display for ArgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ArgError::InvalidName => write!(f, "Не корректное имя аргумента"),
+            ArgError::InvalidFlagValue(arg_name) => write!(f, "Ожидалось значение bool для аргумента {}", arg_name),
         }
     }
 }
@@ -26,6 +28,65 @@ enum Token {
     DoubleDash,       // Сигнал остановиться, все следующие аргументы позиционные
 }
 
+struct PrepareTokens {
+    tokens: Vec<PreparedToken>
+}
+
+struct PreparedToken {
+    token: Token,
+    is_prepared: bool
+}
+
+impl PrepareTokens {
+    fn get_value_arg(&mut self, arg: &Arg) -> Result<Option<String>, ArgError> {
+        let mut token_iter = self.tokens.iter_mut();
+
+        return match arg.arg_kind.borrow() {
+            ArgKind::Short(name) => {
+                while let Some(prepared_token) = token_iter.next() {
+                    match prepared_token.token {
+                        Token::Short(token_name) => {
+                            if name == &token_name {
+                                prepared_token.is_prepared = true;
+
+                                if arg.is_flag {
+                                    if let Some(next_prepared_token) = token_iter.next() {
+                                        return match next_prepared_token.token {
+                                            Token::Value(ref v) => return {
+                                                if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
+                                                    next_prepared_token.is_prepared = true;
+                                                    Ok(Some(v.to_lowercase()))
+                                                } else {
+                                                    Err(ArgError::InvalidFlagValue(token_name.to_string()))
+                                                }
+                                            } ,
+                                            _ => Ok(Some(true.to_string()))
+                                        }
+                                    }
+                                } else {
+
+                                }
+                            }
+                        },
+                        _ => continue
+                    } 
+                }
+
+                Ok(None)
+            },
+            ArgKind::Long(name) => {
+                Ok(None)
+            },
+            ArgKind::ShortLong(name) => {
+                Ok(None)
+            },
+            ArgKind::Position => {
+                Ok(None)
+            },
+        }
+    }
+}
+
 /// Струкатура для хранения типов аргумента
 #[derive(Debug)]
 pub enum ArgKind {
@@ -33,25 +94,6 @@ pub enum ArgKind {
     Long(String),
     ShortLong(String),
     Position
-}
-
-impl ArgKind {
-    /// Вывод имени аргумента с символами --
-    fn name(&self) -> Option<String> {
-        match self {
-            ArgKind::Short(c) => Some(format!("-{}", c)),
-            ArgKind::Long(s) => Some(format!("--{}", s)),
-            ArgKind::ShortLong(s) => Some(format!("--{}", s)),
-            ArgKind::Position => None,
-        }
-    }
-
-    fn is_short_long(&self) -> bool {
-        match self {
-            ArgKind::ShortLong(_) => true,
-            _ => false
-        }
-    }
 }
 
 /// Структура для хранения данных аргумента
@@ -114,18 +156,29 @@ impl Arg {
     }
 }
 
-pub fn parse<T, I>(user_args: T) 
+/// Функия чприсваивает пользовательским переменным значения из аргументов приложения
+pub fn parse<T, I>(mut user_args: T) -> Result<(), ArgError>
 where 
-    T: AsRef<[I]>,
-    I: Borrow<Arg>, 
+    T: AsMut<[I]>,
+    I: BorrowMut<Arg>, 
 {
-    let tokens = get_tokens(env::args().skip(1).collect());
+    let mut tokens = PrepareTokens { 
+        tokens: convert_to_tokens(env::args().skip(1).collect())
+            .into_iter()
+            .map(|t| PreparedToken { token: t, is_prepared: false})
+            .collect()
+    };
 
+    for arg in user_args.as_mut().iter_mut() {
+        let argument = arg.borrow_mut();
+        // Передаем в парсер токенов ссылку, но значение присваиваем через мутабельный доступ
+        argument.value = tokens.get_value_arg(argument)?;
+    }
 
-    println!("{:?}", tokens);
+    Ok(())
 }
 
-fn get_tokens(args: Vec<String>) -> Vec<Token> {
+fn convert_to_tokens(args: Vec<String>) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
     let mut is_double_dash = false;
 
@@ -143,12 +196,12 @@ fn get_tokens(args: Vec<String>) -> Vec<Token> {
 
         if arg.starts_with("--") {
             if let Some(split_sub_str) = arg.split_once("=") {
-                tokens.push(Token::Long(split_sub_str.0.to_owned()));
+                tokens.push(Token::Long(split_sub_str.0[2..].to_owned()));
                 tokens.push(Token::Value(split_sub_str.1.to_owned()));
                 continue;
             }
 
-            tokens.push(Token::Long(arg.to_owned()));
+            tokens.push(Token::Long(arg[2..].to_owned()));
             continue;
         }
 
