@@ -5,6 +5,7 @@ use std::{borrow::{Borrow, BorrowMut}, env, error::Error, fmt};
 pub enum ArgError {
     InvalidName,
     InvalidFlagValue(String),
+    NoneValue(String),
 }
 
 /// Реализаия Display для вывода понятного сообщения пользователю
@@ -13,6 +14,7 @@ impl fmt::Display for ArgError {
         match self {
             ArgError::InvalidName => write!(f, "Не корректное имя аргумента"),
             ArgError::InvalidFlagValue(arg_name) => write!(f, "Ожидалось значение bool для аргумента {}", arg_name),
+            ArgError::NoneValue(arg_name) => write!(f, "Ожидалось значение для аргумента {}", arg_name),
         }
     }
 }
@@ -39,43 +41,14 @@ struct PreparedToken {
 
 impl PrepareTokens {
     fn get_value_arg(&mut self, arg: &Arg) -> Result<Option<String>, ArgError> {
-        let mut token_iter = self.tokens.iter_mut();
+        // let mut token_iter = self.tokens.iter_mut()
 
         return match arg.arg_kind.borrow() {
             ArgKind::Short(name) => {
-                while let Some(prepared_token) = token_iter.next() {
-                    match prepared_token.token {
-                        Token::Short(token_name) => {
-                            if name == &token_name {
-                                prepared_token.is_prepared = true;
-
-                                if arg.is_flag {
-                                    if let Some(next_prepared_token) = token_iter.next() {
-                                        return match next_prepared_token.token {
-                                            Token::Value(ref v) => return {
-                                                if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
-                                                    next_prepared_token.is_prepared = true;
-                                                    Ok(Some(v.to_lowercase()))
-                                                } else {
-                                                    Err(ArgError::InvalidFlagValue(token_name.to_string()))
-                                                }
-                                            } ,
-                                            _ => Ok(Some(true.to_string()))
-                                        }
-                                    }
-                                } else {
-
-                                }
-                            }
-                        },
-                        _ => continue
-                    } 
-                }
-
-                Ok(None)
+                self.prepared_short_token(name, arg.is_flag)
             },
             ArgKind::Long(name) => {
-                Ok(None)
+                self.prepared_long_token(name, arg.is_flag)
             },
             ArgKind::ShortLong(name) => {
                 Ok(None)
@@ -84,6 +57,67 @@ impl PrepareTokens {
                 Ok(None)
             },
         }
+    }
+
+    ///  Метод присваивает значения аргументов из short(flag) токенов
+    fn prepared_short_token(&mut self, name: &char, is_flag: bool) -> Result<Option<String>, ArgError> {
+        let mut token_iter = self.tokens.iter_mut();
+
+        while let Some(prepared_token) = token_iter.next() {
+            match prepared_token.token {
+                Token::Short(token_name) => {
+                    if name == &token_name {
+                        prepared_token.is_prepared = true;
+
+                        if is_flag {
+                            if let Some(next_prepared_token) = token_iter.next() {
+                                return match next_prepared_token.token {
+                                    Token::Value(ref v) => return {
+                                        if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
+                                            next_prepared_token.is_prepared = true;
+                                            Ok(Some(v.to_lowercase()))
+                                        } else {
+                                            Err(ArgError::InvalidFlagValue(token_name.to_string()))
+                                        }
+                                    } ,
+                                    _ => Ok(Some(true.to_string()))
+                                }
+                            }
+                        } else {
+                            if let Some(next_prepared_token) = token_iter.next() {
+                                return match next_prepared_token.token {
+                                    Token::Value(ref v) => return {     
+                                        next_prepared_token.is_prepared = true;
+                                        Ok(Some(v.to_owned()))
+                                    } ,
+                                    _ => Err(ArgError::NoneValue(token_name.to_string()))
+                                }
+                            }
+                        }
+                    }
+                },
+                _ => continue
+            } 
+        }
+
+        Ok(None)
+    }
+
+    fn prepared_long_token(&mut self, name: &str, is_flag: bool) -> Result<Option<String>, ArgError> {
+        let mut token_iter = self.tokens.iter_mut();
+
+        while let Some(prepared_token) = token_iter.next() {
+            match prepared_token.token {
+                Token::Long(ref token_name) => {
+                    if name.eq(token_name) {
+
+                    }
+                },
+                _ => continue,
+            }
+        }
+
+        Ok(None)
     }
 }
 
