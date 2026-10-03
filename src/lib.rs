@@ -1,12 +1,12 @@
-use std::{borrow::Borrow, collections::HashMap, env, error::Error, fmt};
+use std::{borrow::Borrow, env, error::Error, fmt};
 
-// 1. Объявляем enum с вариантами ошибок
+/// enum с вариантами ошибок
 #[derive(Debug)]
 pub enum ArgError {
     InvalidName,
 }
 
-// 2. Реализуем Display для вывода понятного сообщения пользователю
+/// Реализаия Display для вывода понятного сообщения пользователю
 impl fmt::Display for ArgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -15,17 +15,18 @@ impl fmt::Display for ArgError {
     }
 }
 
-// 3. Реализуем пустой трейт Error
+/// Реализаия пустого трейта Error
 impl Error for ArgError {}
 
-#[derive(Debug)]
+#[derive(Eq, Hash, PartialEq, Debug)]
 enum Token {
-    Short(Vec<char>), // Передаем массив символов для поддержки -xvf
+    Short(char),      // Передаем символов для поддержки -x
     Long(String),     // Цельное имя
     Value(String),    // Значение или позиционный аргумент
-    DoubleDash,       // Сигнал остановиться
+    DoubleDash,       // Сигнал остановиться, все следующие аргументы позиционные
 }
 
+/// Струкатура для хранения типов аргумента
 #[derive(Debug)]
 pub enum ArgKind {
     Short(char),
@@ -35,6 +36,7 @@ pub enum ArgKind {
 }
 
 impl ArgKind {
+    /// Вывод имени аргумента с символами --
     fn name(&self) -> Option<String> {
         match self {
             ArgKind::Short(c) => Some(format!("-{}", c)),
@@ -52,6 +54,7 @@ impl ArgKind {
     }
 }
 
+/// Структура для хранения данных аргумента
 #[derive(Debug)]
 pub struct Arg {
     arg_kind: ArgKind,
@@ -116,63 +119,60 @@ where
     T: AsRef<[I]>,
     I: Borrow<Arg>, 
 {
-    let args: Vec<String> = env::args().skip(1).collect();
-    let mut map: HashMap<String, &I> = HashMap::new();
+    let tokens = get_tokens(env::args().skip(1).collect());
 
-    let mut pos_i = 0;
-    for arg in user_args.as_ref() {
-        if let Some(name) = arg.borrow().arg_kind.name() {
-            map.insert(name.clone(), arg);
 
-            if arg.borrow().arg_kind.is_short_long() {
-                map.insert(format!("-{}", name.chars().nth(2).expect("Пустое имя параметра")), arg);
-            }
-        } else {
-            map.insert(format!("pos{}", pos_i), arg);
-            pos_i +=1;
-        }
-
-        
-    }
-
-    for (i, sub_str) in args.into_iter().enumerate() {
-        
-    }
-    
-    
+    println!("{:?}", tokens);
 }
 
-// fn parse_args(args: Vec<String>) -> Vec<Token> {
-//     let mut tokens: Vec<Token> = Vec::new();
-//     let mut is_double_dash = false;
-    
+fn get_tokens(args: Vec<String>) -> Vec<Token> {
+    let mut tokens: Vec<Token> = Vec::new();
+    let mut is_double_dash = false;
 
-//     for (i, sub_str) in args.into_iter().enumerate() {
-//         if is_double_dash {
-//             tokens.push(Token::Value(sub_str));
-//             continue;
-//         }
+    for arg in args.into_iter() {
+        if is_double_dash { // если был аргумент --, значит все следующие аргементы позиционные
+            tokens.push(Token::Value(arg));
+            continue;
+        }
 
-//         if sub_str.eq("--") {
-//             tokens.push(Token::DoubleDash);
-//             is_double_dash = true;
-//             continue;
-//         }
+        if arg.eq("--") {
+            tokens.push(Token::DoubleDash);
+            is_double_dash = true;
+            continue;
+        }
 
-//         if sub_str.starts_with("--") {
-//             if let Some(split_sub_str) = sub_str.split_once("=") {
-//                 tokens.push(Token::Long(split_sub_str.0.to_owned()));
-//                 tokens.push(Token::Value(split_sub_str.1.to_owned()));
-//                 continue;
-//             }
+        if arg.starts_with("--") {
+            if let Some(split_sub_str) = arg.split_once("=") {
+                tokens.push(Token::Long(split_sub_str.0.to_owned()));
+                tokens.push(Token::Value(split_sub_str.1.to_owned()));
+                continue;
+            }
 
-//             tokens.push(Token::Long(sub_str.to_owned()));
-//             continue;
-//         }
-//     }
+            tokens.push(Token::Long(arg.to_owned()));
+            continue;
+        }
 
-//     tokens
-// }
+        if arg.starts_with("-") && arg.len() > 1 {
+            if let Some(split_sub_str) = arg.split_once("=") {
+                add_short_tokens(&mut tokens, split_sub_str.0);
+                tokens.push(Token::Value(split_sub_str.1.to_owned()));
+                continue;
+            }
+
+            add_short_tokens(&mut tokens, &arg);
+        } else {
+            tokens.push(Token::Value(arg));
+        }
+    }
+
+    tokens
+}
+
+fn add_short_tokens(tokens: &mut Vec<Token>, arg: &str) {
+    for c in arg.chars().skip(1) {
+        tokens.push(Token::Short(c));
+    }
+}
 
 // #[cfg(test)]
 // mod tests {
