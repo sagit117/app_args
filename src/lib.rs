@@ -22,21 +22,11 @@ impl fmt::Display for ArgError {
 /// Реализаия пустого трейта Error
 impl Error for ArgError {}
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Debug)]
 enum Token {
     Short(char),      // Передаем символов для поддержки -x
     Long(String),     // Цельное имя
     Value(String),    // Значение или позиционный аргумент
-    DoubleDash,       // Сигнал остановиться, все следующие аргументы позиционные
-}
-
-impl Token {
-    fn is_value(&self) -> bool {
-        match self {
-            Token::Value(_) => true,
-            _ => false,
-        }
-    }
 }
 
 struct PrepareTokens {
@@ -89,24 +79,6 @@ impl PrepareTokens {
                 self.tokens[index].is_prepared = true;
 
                 return Ok(Some(result_str.to_owned()))
-
-                // if let Some(prev_index) = index.checked_sub(1) {
-                //     if let Some(prev_token) = self.tokens.get(prev_index) {
-                //         if !prev_token.is_prepared && prev_token.token.is_value() {
-                //             self.tokens[index].is_prepared = true;
-
-                //             return Ok(Some(result_str.to_owned()))
-                //         }
-                //     } else {
-                //         self.tokens[index].is_prepared = true;
-
-                //         return Ok(Some(result_str.to_owned()))
-                //     }
-                // } else {
-                //     self.tokens[index].is_prepared = true;
-
-                //     return Ok(Some(result_str.to_owned()))
-                // }
             }
         }
 
@@ -155,20 +127,6 @@ impl PrepareTokens {
 
     fn take_value_by_name(is_flag: bool, next_token: Option<&mut PreparedToken>, token_name: &str) -> Result<Option<String>, ArgError> {
         if is_flag {
-            // if let Some(next_prepared_token) = next_token {
-            //     return match next_prepared_token.token {
-            //         Token::Value(ref v) => return {
-            //             if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
-            //                 next_prepared_token.is_prepared = true;
-            //                 Ok(Some(v.to_lowercase()))
-            //             } else {
-            //                 Err(ArgError::InvalidFlagValue(token_name.to_string()))
-            //             }
-            //         } ,
-            //         _ => Ok(Some(true.to_string()))
-            //     }
-            // }
-
             Ok(Some(true.to_string()))
         } else {
             if let Some(next_prepared_token) = next_token {
@@ -303,7 +261,7 @@ fn convert_to_tokens(args: Vec<String>) -> Vec<Token> {
         }
 
         if arg.eq("--") {
-            tokens.push(Token::DoubleDash);
+            // tokens.push(Token::DoubleDash);
             is_double_dash = true;
             continue;
         }
