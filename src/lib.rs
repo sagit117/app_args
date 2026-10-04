@@ -30,6 +30,15 @@ enum Token {
     DoubleDash,       // Сигнал остановиться, все следующие аргументы позиционные
 }
 
+impl Token {
+    fn is_value(&self) -> bool {
+        match self {
+            Token::Value(_) => true,
+            _ => false,
+        }
+    }
+}
+
 struct PrepareTokens {
     tokens: Vec<PreparedToken>
 }
@@ -58,9 +67,50 @@ impl PrepareTokens {
                 }
             },
             ArgKind::Position => {
-                Ok(None)
+                self.prepared_position_token()
             },
         }
+    }
+
+    /// Метод присваивает значения позиционным аргументам из свободных value токенов 
+    fn prepared_position_token(&mut self) -> Result<Option<String>, ArgError> {
+        for index in 0..self.tokens.len() {
+        
+            // Проверяем текущий токен
+            if self.tokens[index].is_prepared {
+                continue;
+            }
+
+            let prepared_token = &self.tokens[index];
+
+            // Проверяем, является ли он значением
+            if let Token::Value(ref v) = prepared_token.token {
+                let result_str = v.to_owned();
+                self.tokens[index].is_prepared = true;
+
+                return Ok(Some(result_str.to_owned()))
+
+                // if let Some(prev_index) = index.checked_sub(1) {
+                //     if let Some(prev_token) = self.tokens.get(prev_index) {
+                //         if !prev_token.is_prepared && prev_token.token.is_value() {
+                //             self.tokens[index].is_prepared = true;
+
+                //             return Ok(Some(result_str.to_owned()))
+                //         }
+                //     } else {
+                //         self.tokens[index].is_prepared = true;
+
+                //         return Ok(Some(result_str.to_owned()))
+                //     }
+                // } else {
+                //     self.tokens[index].is_prepared = true;
+
+                //     return Ok(Some(result_str.to_owned()))
+                // }
+            }
+        }
+
+        Ok(None)
     }
 
     ///  Метод присваивает значения аргументов из short(flag) токенов
@@ -83,6 +133,7 @@ impl PrepareTokens {
         Ok(None)
     }
 
+    ///  Метод присваивает значения аргументов из long(flag) токенов
     fn prepared_long_token(&mut self, name: &str, is_flag: bool) -> Result<Option<String>, ArgError> {
         let mut token_iter = self.tokens.iter_mut();
 
@@ -104,19 +155,19 @@ impl PrepareTokens {
 
     fn take_value_by_name(is_flag: bool, next_token: Option<&mut PreparedToken>, token_name: &str) -> Result<Option<String>, ArgError> {
         if is_flag {
-            if let Some(next_prepared_token) = next_token {
-                return match next_prepared_token.token {
-                    Token::Value(ref v) => return {
-                        if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
-                            next_prepared_token.is_prepared = true;
-                            Ok(Some(v.to_lowercase()))
-                        } else {
-                            Err(ArgError::InvalidFlagValue(token_name.to_string()))
-                        }
-                    } ,
-                    _ => Ok(Some(true.to_string()))
-                }
-            }
+            // if let Some(next_prepared_token) = next_token {
+            //     return match next_prepared_token.token {
+            //         Token::Value(ref v) => return {
+            //             if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
+            //                 next_prepared_token.is_prepared = true;
+            //                 Ok(Some(v.to_lowercase()))
+            //             } else {
+            //                 Err(ArgError::InvalidFlagValue(token_name.to_string()))
+            //             }
+            //         } ,
+            //         _ => Ok(Some(true.to_string()))
+            //     }
+            // }
 
             Ok(Some(true.to_string()))
         } else {
@@ -210,7 +261,7 @@ impl Arg {
 pub fn parse<T, I>(mut user_args: T) -> Result<(), ArgError>
 where 
     T: AsMut<[I]>,
-    I: BorrowMut<Arg>, 
+    I: BorrowMut<Arg> + Borrow<Arg>,
 {
     let mut tokens = PrepareTokens { 
         tokens: convert_to_tokens(env::args().skip(1).collect())
@@ -219,7 +270,20 @@ where
             .collect()
     };
 
-    for arg in user_args.as_mut().iter_mut() {
+    let mut_user_arg = user_args.as_mut();
+
+    // Сортировка: ArgKind::Position уходит в самый конец
+    mut_user_arg.sort_by_key(|item| {
+        let arg: &Arg = item.borrow();
+        
+        // Используем match для определения приоритета (ключа сортировки)
+        match arg.arg_kind {
+            ArgKind::Position => 1, // Самый большой приоритет — улетят в конец
+            _ => 0,                 // Все остальные аргументы — останутся в начале
+        }
+    });
+
+    for arg in mut_user_arg.iter_mut() {
         let argument = arg.borrow_mut();
         // Передаем в парсер токенов ссылку, но значение присваиваем через мутабельный доступ
         argument.value = tokens.get_value_arg(argument)?;
