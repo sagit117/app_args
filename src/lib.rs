@@ -51,7 +51,11 @@ impl PrepareTokens {
                 self.prepared_long_token(name, arg.is_flag)
             },
             ArgKind::ShortLong(name) => {
-                Ok(None)
+                let long_result = self.prepared_long_token(name, arg.is_flag)?;
+                match long_result {
+                    Some(_) => Ok(long_result),
+                    None => self.prepared_short_token(&name.chars().nth(0).unwrap(), arg.is_flag),
+                }
             },
             ArgKind::Position => {
                 Ok(None)
