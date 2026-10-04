@@ -69,31 +69,7 @@ impl PrepareTokens {
                     if name == &token_name {
                         prepared_token.is_prepared = true;
 
-                        if is_flag {
-                            if let Some(next_prepared_token) = token_iter.next() {
-                                return match next_prepared_token.token {
-                                    Token::Value(ref v) => return {
-                                        if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
-                                            next_prepared_token.is_prepared = true;
-                                            Ok(Some(v.to_lowercase()))
-                                        } else {
-                                            Err(ArgError::InvalidFlagValue(token_name.to_string()))
-                                        }
-                                    } ,
-                                    _ => Ok(Some(true.to_string()))
-                                }
-                            }
-                        } else {
-                            if let Some(next_prepared_token) = token_iter.next() {
-                                return match next_prepared_token.token {
-                                    Token::Value(ref v) => return {     
-                                        next_prepared_token.is_prepared = true;
-                                        Ok(Some(v.to_owned()))
-                                    } ,
-                                    _ => Err(ArgError::NoneValue(token_name.to_string()))
-                                }
-                            }
-                        }
+                        return PrepareTokens::take_value_by_name(is_flag, token_iter.next(), &token_name.to_string());
                     }
                 },
                 _ => continue
@@ -110,7 +86,9 @@ impl PrepareTokens {
             match prepared_token.token {
                 Token::Long(ref token_name) => {
                     if name.eq(token_name) {
+                        prepared_token.is_prepared = true;
 
+                        return PrepareTokens::take_value_by_name(is_flag, token_iter.next(), token_name);
                     }
                 },
                 _ => continue,
@@ -118,6 +96,40 @@ impl PrepareTokens {
         }
 
         Ok(None)
+    }
+
+    fn take_value_by_name(is_flag: bool, next_token: Option<&mut PreparedToken>, token_name: &str) -> Result<Option<String>, ArgError> {
+        if is_flag {
+            if let Some(next_prepared_token) = next_token {
+                return match next_prepared_token.token {
+                    Token::Value(ref v) => return {
+                        if v.to_lowercase().eq("true") || v.to_lowercase().eq("false") {
+                            next_prepared_token.is_prepared = true;
+                            Ok(Some(v.to_lowercase()))
+                        } else {
+                            Err(ArgError::InvalidFlagValue(token_name.to_string()))
+                        }
+                    } ,
+                    _ => Ok(Some(true.to_string()))
+                }
+            }
+
+            Ok(Some(true.to_string()))
+        } else {
+            if let Some(next_prepared_token) = next_token {
+                return match next_prepared_token.token {
+                    Token::Value(ref v) => return {     
+                        next_prepared_token.is_prepared = true;
+                        Ok(Some(v.to_owned()))
+                    } ,
+                    _ => Err(ArgError::NoneValue(token_name.to_string()))
+                }
+            }
+
+            Err(ArgError::NoneValue(token_name.to_string()))
+        }
+
+
     }
 }
 
@@ -261,12 +273,3 @@ fn add_short_tokens(tokens: &mut Vec<Token>, arg: &str) {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn it_works() {
-//         parse();
-//     }
-// }
