@@ -74,14 +74,12 @@ impl PrepareTokens {
                 continue;
             }
 
-            let prepared_token = &self.tokens[index];
-
             // Проверяем, является ли он значением
-            if let Token::Value(ref v) = prepared_token.token {
+            if let Token::Value(v) = &self.tokens[index].token {
                 let result_str = v.to_owned();
                 self.tokens[index].is_prepared = true;
 
-                return Ok(Some(result_str.to_owned()))
+                return Ok(Some(result_str))
             }
         }
 
@@ -228,7 +226,7 @@ where
     let mut tokens = PrepareTokens { 
         tokens: convert_to_tokens(env::args().skip(1).collect())
             .into_iter()
-            .map(|t| PreparedToken { token: t, is_prepared: false})
+            .map(|t| PreparedToken { token: t, is_prepared: false })
             .collect()
     };
 
