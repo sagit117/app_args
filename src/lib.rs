@@ -3,9 +3,9 @@ use std::{borrow::{Borrow, BorrowMut}, env, error::Error, fmt};
 /// enum с вариантами ошибок
 #[derive(Debug)]
 pub enum ArgError {
-    InvalidName,
-    InvalidFlagValue(String),
-    NoneValue(String),
+    InvalidName,        // Не корректное имя аргумента (или его отсутствие)
+    // InvalidFlagValue(String),
+    NoneValue(String),  // Отсутствие значение аргумента, когда олно ожидается
 }
 
 /// Реализаия Display для вывода понятного сообщения пользователю
@@ -13,7 +13,7 @@ impl fmt::Display for ArgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ArgError::InvalidName => write!(f, "Не корректное имя аргумента"),
-            ArgError::InvalidFlagValue(arg_name) => write!(f, "Ожидалось значение bool для аргумента {}", arg_name),
+            // ArgError::InvalidFlagValue(arg_name) => write!(f, "Ожидалось значение bool для аргумента {}", arg_name),
             ArgError::NoneValue(arg_name) => write!(f, "Ожидалось значение для аргумента {}", arg_name),
         }
     }
@@ -22,6 +22,7 @@ impl fmt::Display for ArgError {
 /// Реализаия пустого трейта Error
 impl Error for ArgError {}
 
+/// Структура токенов, для парсинга аргументов
 #[derive(Debug)]
 enum Token {
     Short(char),      // Передаем символов для поддержки -x
@@ -29,19 +30,21 @@ enum Token {
     Value(String),    // Значение или позиционный аргумент
 }
 
+/// Структура для хранения вектора токенов
 struct PrepareTokens {
     tokens: Vec<PreparedToken>
 }
 
+
+/// Структура для хранения токена и флага об его обработке
 struct PreparedToken {
     token: Token,
     is_prepared: bool
 }
 
+/// Реализаия операий с токенами
 impl PrepareTokens {
     fn get_value_arg(&mut self, arg: &Arg) -> Result<Option<String>, ArgError> {
-        // let mut token_iter = self.tokens.iter_mut()
-
         return match arg.arg_kind.borrow() {
             ArgKind::Short(name) => {
                 self.prepared_short_token(name, arg.is_flag)
@@ -215,7 +218,8 @@ impl Arg {
     }
 }
 
-/// Функия чприсваивает пользовательским переменным значения из аргументов приложения
+/// Функия присваивает пользовательским переменным значения из аргументов приложения.
+/// Основная функция парсинга данных.
 pub fn parse<T, I>(mut user_args: T) -> Result<(), ArgError>
 where 
     T: AsMut<[I]>,
@@ -252,42 +256,36 @@ where
 
 fn convert_to_tokens(args: Vec<String>) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
-    let mut is_double_dash = false;
+    let mut stop_parse = false;
 
     for arg in args.into_iter() {
-        if is_double_dash { // если был аргумент --, значит все следующие аргементы позиционные
-            tokens.push(Token::Value(arg));
-            continue;
-        }
-
         if arg.eq("--") {
             // tokens.push(Token::DoubleDash);
-            is_double_dash = true;
+            stop_parse = true;
             continue;
         }
 
-        if arg.starts_with("--") {
-            if let Some(split_sub_str) = arg.split_once("=") {
+        if arg.starts_with("--") && !stop_parse {
+            if let Some(split_sub_str) = arg.split_once('=') {
                 tokens.push(Token::Long(split_sub_str.0[2..].to_owned()));
                 tokens.push(Token::Value(split_sub_str.1.to_owned()));
-                continue;
+            } else {
+                tokens.push(Token::Long(arg[2..].to_owned()));
             }
 
-            tokens.push(Token::Long(arg[2..].to_owned()));
             continue;
         }
 
-        if arg.starts_with("-") && arg.len() > 1 {
-            if let Some(split_sub_str) = arg.split_once("=") {
+        if arg.starts_with('-') && arg.len() > 1 && !stop_parse {
+            if let Some(split_sub_str) = arg.split_once('=') {
                 add_short_tokens(&mut tokens, split_sub_str.0);
                 tokens.push(Token::Value(split_sub_str.1.to_owned()));
-                continue;
-            }
+            } else {
+                add_short_tokens(&mut tokens, &arg);
+            }            
+        } 
 
-            add_short_tokens(&mut tokens, &arg);
-        } else {
-            tokens.push(Token::Value(arg));
-        }
+        tokens.push(Token::Value(arg));
     }
 
     tokens
