@@ -1,5 +1,6 @@
 use crate::Arg;
 
+#[derive(Debug)]
 pub struct Matches {
     arg: Vec<Arg>
 }
