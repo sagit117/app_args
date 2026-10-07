@@ -5,8 +5,8 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn arg(&mut self, arg: Result<Arg, ArgError>) -> &mut Builder {
-        self.user_args.push(arg.unwrap());
+    pub fn arg(&mut self, arg: Arg) -> &mut Builder {
+        self.user_args.push(arg);
 
         self
     }
