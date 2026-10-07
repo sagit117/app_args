@@ -95,15 +95,7 @@ where
     let mut_user_arg = user_args.as_mut();
 
     // Сортировка: ArgKind::Position уходит в самый конец
-    mut_user_arg.sort_by_key(|item| {
-        let arg: &Arg = item.borrow();
-        
-        // Используем match для определения приоритета (ключа сортировки)
-        match arg.arg_kind {
-            ArgKind::Position => 1, // Самый большой приоритет — улетят в конец
-            _ => 0,                 // Все остальные аргументы — останутся в начале
-        }
-    });
+    mut_user_arg.sort_by_key(sort_args_by_priority);
 
     for arg in mut_user_arg.iter_mut() {
         let argument = arg.borrow_mut();
@@ -114,3 +106,15 @@ where
     Ok(())
 }
 
+
+// Функция принимает &I (где I — ваш элемент из вектора)
+fn sort_args_by_priority<I>(item: &I) -> i32
+where
+    I: Borrow<Arg>,
+{
+    // Извлекаем ссылку на Arg через трейт Borrow
+    match item.borrow().arg_kind {
+        ArgKind::Position => 1, // Позиционные аргументы уходят в конец
+        _ => 0,                 // Остальные остаются в начале
+    }
+}

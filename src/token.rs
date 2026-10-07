@@ -126,6 +126,7 @@ impl PrepareTokens {
     }
 }
 
+/// конвертаия аргументов в токены
 pub(crate) fn convert_to_tokens(args: Vec<String>) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::with_capacity(args.len() * 2);
     let mut stop_parse = false;
