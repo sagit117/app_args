@@ -6,7 +6,7 @@ use std::{borrow::{Borrow, BorrowMut}, env};
 
 mod err;
 mod token;
-pub mod buildr;
+pub mod builder;
 
 /// Струкатура для хранения типов аргумента
 #[derive(Debug)]
