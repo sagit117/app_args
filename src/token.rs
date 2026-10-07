@@ -2,20 +2,20 @@ use crate::{ArgKind, err::ArgError};
 
 /// Структура токенов, для парсинга аргументов
 #[derive(Debug)]
-pub enum Token {
+pub(crate) enum Token {
     Short(char),      // Передаем символов для поддержки -x
     Long(String),     // Цельное имя
     Value(String),    // Значение или позиционный аргумент
 }
 
 /// Структура для хранения вектора токенов
-pub struct PrepareTokens {
+pub(crate) struct PrepareTokens {
     pub(crate) tokens: Vec<PreparedToken>
 }
 
 
 /// Структура для хранения токена и флага об его обработке
-pub struct PreparedToken {
+pub(crate) struct PreparedToken {
     pub(crate) token: Token,
     pub(crate) is_prepared: bool
 }
@@ -123,4 +123,55 @@ impl PrepareTokens {
 
 
     }
+}
+
+pub(crate) fn convert_to_tokens(args: Vec<String>) -> Vec<Token> {
+    let mut tokens: Vec<Token> = Vec::with_capacity(args.len() * 2);
+    let mut stop_parse = false;
+
+    for mut arg in args {
+        if arg.eq("--") {
+            stop_parse = true;
+            continue;
+        }
+
+        if arg.starts_with("--") && !stop_parse {
+            if let Some(pos) = arg.find('=') {
+                // Разделяем String на две части без выделения новой памяти под первую часть
+                let value = arg.split_off(pos + 1); 
+                arg.truncate(pos); // Теперь в arg осталось "--flag"
+                
+                tokens.push(Token::Long(arg[2..].to_string()));
+                tokens.push(Token::Value(value));
+            } else {
+                tokens.push(Token::Long(arg[2..].to_string()));
+            }
+
+            continue;
+        }
+
+        // Обработка коротких флагов: -f или -abc или -abc=value
+        if arg.starts_with('-') && arg.len() > 1 {
+            if let Some(pos) = arg.find('=') {
+                let value = arg.split_off(pos + 1);
+                
+                // Добавляем все символы флагов, кроме первого ('-') и знака '='
+                for c in arg[1..pos].chars() {
+                    tokens.push(Token::Short(c));
+                }
+
+                tokens.push(Token::Value(value));
+            } else {
+                for c in arg[1..].chars() {
+                    tokens.push(Token::Short(c));
+                }
+            }
+
+            continue; 
+        } 
+
+        tokens.push(Token::Value(arg));
+    }
+
+    tokens
 }

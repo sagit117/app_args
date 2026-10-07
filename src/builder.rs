@@ -1,11 +1,10 @@
-use crate::{Arg, err::ArgError};
+use std::env;
+
+use crate::{Arg, matches::Matches, token::{PreparedToken, convert_to_tokens}};
 
 pub struct Builder {
-    user_args: Vec<Arg>
-}
-
-pub struct Matches {
-
+    user_args: Vec<Arg>,
+    prepared_tokens: Vec<PreparedToken>
 }
 
 impl Builder {
@@ -22,6 +21,11 @@ impl Builder {
 
 pub fn new() -> Builder {
     Builder { 
-        user_args: Vec::new()
+        user_args: Vec::new(),
+        prepared_tokens: convert_to_tokens(env::args().skip(1).collect())
+            .into_iter()
+            .map(|t| PreparedToken { token: t, is_prepared: false })
+            .collect()
     }
 }
+

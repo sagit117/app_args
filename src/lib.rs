@@ -1,12 +1,13 @@
-use crate::token::Token;
 use crate::token::PreparedToken;
 use crate::token::PrepareTokens;
 use crate::err::ArgError;
+use crate::token::convert_to_tokens;
 use std::{borrow::{Borrow, BorrowMut}, env};
 
 mod err;
 mod token;
 pub mod builder;
+pub mod matches;
 
 /// Струкатура для хранения типов аргумента
 #[derive(Debug)]
@@ -111,48 +112,5 @@ where
     }
 
     Ok(())
-}
-
-fn convert_to_tokens(args: Vec<String>) -> Vec<Token> {
-    let mut tokens: Vec<Token> = Vec::new();
-    let mut stop_parse = false;
-
-    for arg in args.into_iter() {
-        if arg.eq("--") {
-            // tokens.push(Token::DoubleDash);
-            stop_parse = true;
-            continue;
-        }
-
-        if arg.starts_with("--") && !stop_parse {
-            if let Some(split_sub_str) = arg.split_once('=') {
-                tokens.push(Token::Long(split_sub_str.0[2..].to_owned()));
-                tokens.push(Token::Value(split_sub_str.1.to_owned()));
-            } else {
-                tokens.push(Token::Long(arg[2..].to_owned()));
-            }
-
-            continue;
-        }
-
-        if arg.starts_with('-') && arg.len() > 1 && !stop_parse {
-            if let Some(split_sub_str) = arg.split_once('=') {
-                add_short_tokens(&mut tokens, split_sub_str.0);
-                tokens.push(Token::Value(split_sub_str.1.to_owned()));
-            } else {
-                add_short_tokens(&mut tokens, &arg);
-            }            
-        } 
-
-        tokens.push(Token::Value(arg));
-    }
-
-    tokens
-}
-
-fn add_short_tokens(tokens: &mut Vec<Token>, arg: &str) {
-    for c in arg.chars().skip(1) {
-        tokens.push(Token::Short(c));
-    }
 }
 
