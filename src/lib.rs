@@ -2,6 +2,7 @@ use crate::token::PreparedToken;
 use crate::token::PrepareTokens;
 use crate::err::ArgError;
 use crate::token::convert_to_tokens;
+use std::borrow::Cow;
 use std::{borrow::{Borrow, BorrowMut}, env};
 
 mod err;
@@ -16,6 +17,19 @@ pub enum ArgKind {
     Long(String),
     ShortLong(String),
     Position
+}
+
+impl ArgKind {
+    pub(crate) fn name(&self) -> Option<Cow<'_, str>> {
+        match self {
+            // Для char создаем временную String, Cow заберет её во владение
+            ArgKind::Short(c) => Some(Cow::Owned(c.to_string())),
+            // Для String просто одалживаем &str без выделения памяти
+            ArgKind::Long(s) => Some(Cow::Borrowed(s.as_str())),
+            ArgKind::ShortLong(s) => Some(Cow::Borrowed(s.as_str())),
+            ArgKind::Position => None,
+        }
+    }
 }
 
 /// Структура для хранения данных аргумента
