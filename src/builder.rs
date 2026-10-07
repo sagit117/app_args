@@ -1,12 +1,12 @@
-use crate::Arg;
+use crate::{Arg, err::ArgError};
 
 pub struct Builder {
     user_args: Vec<Arg>
 }
 
 impl Builder {
-    pub fn arg(&mut self, arg: Arg) -> &mut Builder {
-        self.user_args.push(arg);
+    pub fn arg(&mut self, arg: Result<Arg, ArgError>) -> &mut Builder {
+        self.user_args.push(arg.unwrap());
 
         self
     }
