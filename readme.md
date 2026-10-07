@@ -2,6 +2,7 @@
 
 #### Получение аргументов приложения
 
+#### вариант 1
 ```rust
 let mut port_arg = Arg::short('p', true, "short flag arg")
     .map_err(|e| format!("Ошибка создания параметра port: {}", e)).unwrap();
@@ -24,4 +25,21 @@ println!("-p {:?}", port_arg.value());
 println!("--config {:?}", config_arg.value());
 println!("pos1 {:?}", pos1.value());
 println!("pos2 {:?}", pos2.value());
+```
+
+#### вариант 2
+```rust
+let matches = app_args::builder::new()
+    .arg(Arg::short('p', true, "short flag arg").unwrap())
+    .arg(Arg::short_long("config",false, "short long arg").unwrap())
+    .arg(Arg::position("position arg1"))
+    .arg(Arg::position("position arg2"))
+    .parse()
+    .unwrap();
+
+println!("-p {:?}", matches.get_flag("-p"));
+println!("--config {:?}", matches.get_value("--config"));
+println!("--config {:?}", matches.get_value("config"));
+println!("pos1 {:?}", matches.get_position_at(1));
+println!("pos2 {:?}", matches.get_position_at(2));
 ```
