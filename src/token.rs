@@ -33,7 +33,10 @@ impl PrepareTokens {
             ArgKind::ShortLong(name) => {
                 let long_result = self.prepared_long_token(name, is_flag)?;
                 match long_result {
-                    Some(_) => Ok(long_result),
+                    Some(_) => {
+                        _ = self.prepared_short_token(&name.chars().nth(0).unwrap(), is_flag);
+                        Ok(long_result)
+                    },
                     None => self.prepared_short_token(&name.chars().nth(0).unwrap(), is_flag),
                 }
             },
@@ -120,8 +123,6 @@ impl PrepareTokens {
 
             Err(ArgError::NoneValue(token_name.to_string()))
         }
-
-
     }
 }
 
